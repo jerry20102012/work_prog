@@ -1,0 +1,343 @@
+﻿Makefile 使用总结
+
+https://www.cnblogs.com/wang_yb/p/3990952.html
+VPATH 使用方法:
+• vpath <directories>            :: 当前目录中找不到文件时, 就从<directories>中搜索
+• vpath <pattern> <directories>  :: 符合<pattern>格式的文件, 就从<directories>中搜索
+• vpath <pattern>                :: 清除符合<pattern>格式的文件搜索路径
+• vpath                          :: 清除所有已经设置好的文件路径
+变量定义 ( = or := )
+= 和 :=  的区别在于, := 只能使用前面定义好的变量, = 可以使用后面定义的变量
+OBJS3 := $(OBJS1) programC.o   //此时(OBJS1)为空
+OBJS2 = $(OBJS1) programC.o
+OBJS1 = programA.o programB.o
+变量追加值 +=
+SRCS += programD.c
+查看C文件的依赖关系
+$ gcc -MM kvm_main.c 
+make 退出码
+Makefile的退出码有以下3种：
+• 0 :: 表示成功执行
+• 1 :: 表示make命令出现了错误
+• 2 :: 使用了 "-q" 选项, 并且make使得一些目标不需要更新
+
+默认执行 make 命令时, GNU make在当前目录下依次搜索下面3个文件 "GNUmakefile", "makefile", "Makefile"
+
+命令变量, 书写Makefile可以直接写 shell时用这些变量.
+下面只列出一些C相关的
+变量名含义RMrm -fARarCCccCXXg++命令参数变量
+变量名含义ARFLAGSAR命令的参数CFLAGSC语言编译器的参数CXXFLAGSC++语言编译器的参数
+自动变量
+Makefile 中很多时候通过自动变量来简化书写, 各个自动变量的含义如下:
+自动变量含义$@目标集合$%当目标是函数库文件时, 表示其中的目标文件名$<第一个依赖目标. 如果依赖目标是多个, 逐个表示依赖目标$?比目标新的依赖目标的集合$^所有依赖目标的集合, 会去除重复的依赖目标$+所有依赖目标的集合, 不会去除重复的依赖目标$*这个是GNU make特有的, 其它的make不一定支持
+export VALUE1 := export.c    <-- 用了 export, 此变量能够传递到 ./other/Makefile 中
+VALUE2 := no-export.c        <-- 此变量不能传递到 ./other/Makefile 中
+
+3.4 Makefile 中的函数
+3.4.1 字符串函数
+
+字符串替换函数: $(subst <from>,<to>,<text>)
+功能: 把字符串<text> 中的 <from> 替换为 <to>
+$(subst t,e,maktfilt)	//makefile
+模式字符串替换函数: $(patsubst <pattern>,<replacement>,<text>)
+功能: 查找<text>中的单词(单词以"空格", "tab", "换行"来分割) 是否符合 <pattern>, 符合的话, 用 <replacement> 替代.
+$(patsubst %.c,%.o,programA.c programB.c)	// programA.o programB.o
+
+去空格函数: $(strip <string>)
+功能: 去掉 <string> 字符串开头和结尾的空字符(中间的不去)
+返回: 被去掉空格的字符串值
+查找字符串函数: $(findstring <find>,<in>)
+功能: 在字符串 <in> 中查找 <find> 字符串
+返回: 如果找到, 返回 <find> 字符串,  否则返回空字符串
+
+过滤函数: $(filter <pattern...>,<text>)
+功能: 以 <pattern> 模式过滤字符串 <text>, *保留* 符合模式 <pattern> 的单词, 可以有多个模式
+返回: 符合模式 <pattern> 的字符串
+$(filter %.o %.a,program.c program.o program.a) 	// program.o program.a
+
+反过滤函数: $(filter-out <pattern...>,<text>)
+功能: 以 <pattern> 模式过滤字符串 <text>, *去除* 符合模式 <pattern> 的单词, 可以有多个模式
+返回: 不符合模式 <pattern> 的字符串
+$(filter-out %.o %.a,program.c program.o program.a)	// program.c
+
+排序函数: $(sort <list>)
+功能: 给字符串 <list> 中的单词排序 (升序)
+返回: 排序后的字符串
+$(sort bac abc acb cab)	// abc acb bac cab
+
+取单词函数: $(word <n>,<text>)
+功能: 取字符串 <text> 中的 第<n>个单词 (n从1开始)
+返回: <text> 中的第<n>个单词, 如果<n> 比 <text> 中单词个数要大, 则返回空字符串
+@echo $(word 1,aa bb cc dd)
+    @echo $(word 5,aa bb cc dd)
+    @echo $(word 4,aa bb cc dd)
+
+# bash 中执行 make
+$ make
+aa
+
+dd
+取单词串函数: $(wordlist <s>,<e>,<text>)
+功能: 从字符串<text>中取从<s>开始到<e>的单词串. <s>和<e>是一个数字.
+返回: 从<s>到<e>的字符串
+all:
+    @echo $(wordlist 1,3,aa bb cc dd)		//aa bb cc
+    @echo $(word 5,6,aa bb cc dd)		//空
+单词个数统计函数: $(words <text>)
+功能: 统计字符串 <text> 中单词的个数
+返回: 单词个数
+# Makefile 内容
+
+all:
+    @echo $(words aa bb cc dd)
+    @echo $(words aabbccdd)
+    @echo $(words )
+
+# bash 中执行 make
+$ make
+4
+1
+0
+首单词函数: $(firstword <text>)
+功能: 取字符串 <text> 中的第一个单词
+返回: 字符串 <text> 中的第一个单词
+# Makefile 内容
+all:
+    @echo $(firstword aa bb cc dd)
+    @echo $(firstword aabbccdd)
+    @echo $(firstword )
+
+# bash 中执行 make
+$ make
+aa
+aabbccdd
+
+3.4.2 文件名函数
+取目录函数: $(dir <names...>)
+功能: 从文件名序列 <names> 中取出目录部分
+返回: 文件名序列 <names> 中的目录部分
+# Makefile 内容
+all:
+    @echo $(dir /home/a.c ./bb.c ../c.c d.c)
+
+
+# bash 中执行 make
+$ make
+/home/ ./ ../ ./
+ 
+取文件函数: $(notdir <names...>)
+功能: 从文件名序列 <names> 中取出非目录部分
+返回: 文件名序列 <names> 中的非目录部分
+# Makefile 内容
+all:
+    @echo $(notdir /home/a.c ./bb.c ../c.c d.c)
+
+# bash 中执行 make
+$ make
+a.c bb.c c.c d.c
+ 
+取后缀函数: $(suffix <names...>)
+功能: 从文件名序列 <names> 中取出各个文件名的后缀
+返回: 文件名序列 <names> 中各个文件名的后缀, 没有后缀则返回空字符串
+# Makefile 内容
+all:
+    @echo $(suffix /home/a.c ./b.o ../c.a d)
+
+# bash 中执行 make
+$ make
+.c .o .a
+ 
+取前缀函数: $(basename <names...>)
+功能: 从文件名序列 <names> 中取出各个文件名的前缀
+返回: 文件名序列 <names> 中各个文件名的前缀, 没有前缀则返回空字符串
+# Makefile 内容
+all:
+    @echo $(basename /home/a.c ./b.o ../c.a /home/.d .e)
+
+
+# bash 中执行 make
+$ make
+/home/a ./b ../c /home/
+ 
+加后缀函数: $(addsuffix <suffix>,<names...>)
+功能: 把后缀 <suffix> 加到 <names> 中的每个单词后面
+返回: 加过后缀的文件名序列
+# Makefile 内容
+all:
+    @echo $(addsuffix .c,/home/a b ./c.o ../d.c)
+
+
+# bash 中执行 make
+$ make
+/home/a.c b.c ./c.o.c ../d.c.c
+ 
+加前缀函数: $(addprefix <prefix>,<names...>)
+功能: 把前缀 <prefix> 加到 <names> 中的每个单词前面
+返回: 加过前缀的文件名序列
+# Makefile 内容
+all:
+    @echo $(addprefix test_,/home/a.c b.c ./d.c)
+
+# bash 中执行 make
+$ make
+test_/home/a.c test_b.c test_./d.c
+ 
+连接函数: $(join <list1>,<list2>)
+功能: <list2> 中对应的单词加到 <list1> 后面
+返回: 连接后的字符串
+# Makefile 内容
+all:
+    @echo $(join a b c d,1 2 3 4)
+    @echo $(join a b c d,1 2 3 4 5)
+    @echo $(join a b c d e,1 2 3 4)
+
+# bash 中执行 make
+$ make
+a1 b2 c3 d4
+a1 b2 c3 d4 5
+a1 b2 c3 d4 e
+3.4.3 foreach
+语法:
+$(foreach <var>,<list>,<text>)
+ 
+示例:
+# Makefile 内容
+targets := a b c d
+objects := $(foreach i,$(targets),$(i).o)
+
+all:
+    @echo $(targets)
+    @echo $(objects)
+
+# bash 中执行 make
+$ make
+a b c d
+a.o b.o c.o d.o
+ 
+3.4.4 if
+这里的if是个函数, 和前面的条件判断不一样, 前面的条件判断属于Makefile的关键字
+语法:
+$(if <condition>,<then-part>)
+$(if <condition>,<then-part>,<else-part>)
+ 
+示例:
+# Makefile 内容
+val := a
+objects := $(if $(val),$(val).o,nothing)
+no-objects := $(if $(no-val),$(val).o,nothing)
+
+all:
+    @echo $(objects)
+    @echo $(no-objects)
+
+# bash 中执行 make
+$ make
+a.o
+nothing
+ 
+3.4.5 call - 创建新的参数化函数
+语法:
+$(call <expression>,<parm1>,<parm2>,<parm3>...)
+ 
+示例:
+# Makefile 内容
+log = "====debug====" $(1) "====end===="
+
+all:
+    @echo $(call log,"正在 Make")
+
+# bash 中执行 make
+$ make
+====debug==== 正在 Make ====end====
+3.4.6 origin - 判断变量的来源
+语法:
+$(origin <variable>)
+返回值有如下类型:
+类型含义undefined<variable> 没有定义过default<variable> 是个默认的定义, 比如 CC 变量environment<variable> 是个环境变量, 并且 make时没有使用 -e 参数file<variable> 定义在Makefile中command line<variable> 定义在命令行中override<variable> 被 override 重新定义过automatic<variable> 是自动化变量3.4.7 shell
+语法:
+$(shell <shell command>)
+它的作用就是执行一个shell命令, 并将shell命令的结果作为函数的返回.
+作用和 `<shell command>` 一样, ` 是反引号
+3.4.8 make 控制函数
+产生一个致命错误: $(error <text ...>)
+功能: 输出错误信息, 停止Makefile的运行
+# Makefile 内容
+all:
+    $(error there is an error!)
+    @echo "这里不会执行!"
+
+# bash 中执行 make
+$ make
+Makefile:2: *** there is an error!.  Stop.
+ 
+输出警告: $(warning <text ...>)
+功能: 输出警告信息, Makefile继续运行
+# Makefile 内容
+all:
+    $(warning there is an warning!)
+    @echo "这里会执行!"
+
+# bash 中执行 make
+$ make
+Makefile:2: there is an warning!
+这里会执行!
+3.5 Makefile中一些GNU约定俗成的伪目标
+如果有过在Linux上, 从源码安装软件的经历的话, 就会对 make clean, make install 比较熟悉.
+像 clean, install 这些伪目标, 广为人知, 不用解释就大家知道是什么意思了.
+下面列举一些常用的伪目标, 如果在自己项目的Makefile合理使用这些伪目标的话, 可以让我们自己的Makefile看起来更专业, 呵呵 :)
+伪目标含义all所有目标的目标，其功能一般是编译所有的目标clean删除所有被make创建的文件install安装已编译好的程序，其实就是把目标可执行文件拷贝到指定的目录中去print列出改变过的源文件tar把源程序打包备份. 也就是一个tar文件dist创建一个压缩文件, 一般是把tar文件压成Z文件. 或是gz文件TAGS更新所有的目标, 以备完整地重编译使用check 或 test一般用来测试makefile的流程
+#sample Makefile 经典示例
+
+objects := $(patsubst %.c,%.o,$(wildcard *.c))
+
+ foo : $(objects)
+
+cc -o foo $(objects)
+
+ 这里我们使用了make的隐含规则来编译.c的源文件。对变量的赋值也用到了一个特殊的符号（:=）。
+
+ 1、wildcard : 扩展通配符
+
+2、notdir ： 去除路径
+3、patsubst ：替换通配符
+
+例子：
+建立一个测试目录，在测试目录下建立一个名为sub的子目录
+$ mkdir test
+$ cd test
+$ mkdir sub
+
+在test下，建立a.c和b.c2个文件，在sub目录下，建立sa.c和sb.c2 个文件
+
+建立一个简单的Makefile
+src=$(wildcard *.c ./sub/*.c)
+dir=$(notdir $(src))
+obj=$(patsubst %.c,%.o,$(dir) )
+
+all:
+ @echo $(src)
+ @echo $(dir)
+ @echo $(obj)
+ @echo "end"
+ 
+执行结果分析：
+第一行输出：
+a.c b.c ./sub/sa.c ./sub/sb.c
+
+wildcard把 指定目录 ./ 和 ./sub/ 下的所有后缀是c的文件全部展开。
+
+第二行输出：
+a.c b.c sa.c sb.c
+notdir把展开的文件去除掉路径信息
+
+第三行输出：
+a.o b.o sa.o sb.o
+
+在$(patsubst %.c,%.o,$(dir) )中，patsubst把$(dir)中的变量符合后缀是.c的全部替换成.o，
+任何输出。
+或者可以使用
+obj=$(dir:%.c=%.o)
+效果也是一样的。
+
+
+
